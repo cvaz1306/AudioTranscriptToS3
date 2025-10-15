@@ -9,7 +9,6 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    command: ["main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
 
   kong:
     image: kong:3.5
