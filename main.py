@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 import openai
 import boto3
 from datetime import datetime
-import asyncio
 
 # Load environment variables
 load_dotenv()
@@ -23,10 +22,14 @@ s3_client = boto3.client(
 )
 
 bucket_name = os.getenv("MINIO_BUCKET")
+bucket_prefix = os.getenv("MINIO_PREFIX", "").strip("/")  # optional subdirectory
 
 # FastAPI app
 app = FastAPI(title="Audio Transcription API")
 
+@app.get("/health")
+def get_health():
+    return {"status": "ok"}
 @app.post("/upload")
 async def upload_audio(file: UploadFile = File(...)):
     if not file.filename:
@@ -47,7 +50,15 @@ async def upload_audio(file: UploadFile = File(...)):
                 response_format="text"
             )
             transcription_text = transcript
-            print(transcription_text)
+
+            # Upload audio to minio if UPLOAD_AUDIO is set
+            if os.getenv("UPLOAD_AUDIO"):
+                s3_client.put_object(
+                    Bucket=bucket_name,
+                    Key=f"{bucket_prefix}/{file.filename}",
+                    Body=audio_file,
+                    ContentType="audio/mpeg"
+                )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
 
@@ -56,14 +67,24 @@ async def upload_audio(file: UploadFile = File(...)):
     md_filename = f"{timestamp}_{file.filename.rsplit('.', 1)[0]}.md"
     md_content = f"# Transcription: {file.filename}\n\n{transcription_text}"
 
+    # Determine full object key (with prefix)
+    if bucket_prefix:
+        object_key = f"{bucket_prefix}/{md_filename}"
+    else:
+        object_key = md_filename
+
     try:
         s3_client.put_object(
             Bucket=bucket_name,
-            Key=md_filename,
+            Key=object_key,
             Body=md_content.encode("utf-8"),
             ContentType="text/markdown"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload to MinIO: {str(e)}")
 
-    return JSONResponse({"message": "Transcription uploaded successfully", "filename": md_filename})
+    return JSONResponse({
+        "message": "Transcription uploaded successfully",
+        "filename": md_filename,
+        "path": object_key
+    })
