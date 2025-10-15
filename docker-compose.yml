@@ -1,3 +1,4 @@
+version: '3'
 services:
   app:
     build:
@@ -8,6 +9,7 @@ services:
     volumes:
       - .:/app
     working_dir: /app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
 
   kong:
     image: kong:3.5
@@ -18,7 +20,7 @@ services:
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
-      KONG_API_KEY: "${KONG_API_KEY}"
+      KONG_API_KEY: ${KONG_API_KEY}
     ports:
       - "8000:8000"
       - "8001:8001"
