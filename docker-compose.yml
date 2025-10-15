@@ -25,5 +25,10 @@ services:
       - "8001:8001"
     volumes:
       - ./kong.yml:/kong/kong.yml
-    entrypoint: /bin/sh
-    command: -c "envsubst < /kong/kong.yml > /kong/generated_kong.yml && kong start -c /kong/generated_kong.yml"
+    entrypoint:
+      - /bin/sh
+      - -c
+    command: >
+      apk add --no-cache gettext &&
+      envsubst < /kong/kong.yml > /kong/generated_kong.yml &&
+      kong start -c /kong/generated_kong.yml
